@@ -10,18 +10,16 @@ import (
 
 func main() {
 
-	product.InitialiseDb()
+	// database.InitialiseDb()
 
 	router := mux.NewRouter()
 
 	productRouter := router.PathPrefix("/product").Subrouter()
 	productRouter.HandleFunc("", product.GetAllProduct).Methods(http.MethodGet)
-	productRouter.HandleFunc("/get", product.GetByIdProduct).Methods(http.MethodGet)
+	productRouter.HandleFunc("/{id}", product.GetProductByID).Methods(http.MethodGet)
 	productRouter.HandleFunc("/add", product.AddProduct).Methods(http.MethodPost)
-	productRouter.HandleFunc("/update", product.UpdateProduct).Methods(http.MethodPut)
-	productRouter.HandleFunc("/delete", product.DeleteProduct).Methods(http.MethodDelete)
-
-	productRouter.HandleFunc("/data", product.GetData).Methods(http.MethodGet)
+	productRouter.HandleFunc("/update/{id}", product.UpdateProduct).Methods(http.MethodPut)
+	productRouter.HandleFunc("/delete/{id}", product.DeleteProduct).Methods(http.MethodDelete)
 
 	// homeRouter := router.PathPrefix("/search").Subrouter()
 	// homeRouter.HandleFunc("", search.Search).Methods(http.MethodGet)

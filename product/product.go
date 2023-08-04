@@ -1,63 +1,63 @@
 package product
 
 import (
+	"GoProjects/Project2/database"
+	"GoProjects/Project2/model"
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
+var db = database.InitialiseDb()
+
 func GetAllProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var products []Product
+	var products model.Product
 	if err := db.Find(&products).Error; err != nil {
 		respondJSON(w, http.StatusInternalServerError, nil, "Failed to fetch products")
 		return
 	}
 
 	respondJSON(w, http.StatusOK, products, "Products retrieved successfully")
-	// json.NewEncoder(w).Encode(product)
 }
 
-// GetByIdProduct gets a product by ID from the database.
-func GetByIdProduct(w http.ResponseWriter, r *http.Request) {
+func GetProductByID(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	var product Product
-	json.NewDecoder(r.Body).Decode(&product)
-	result := db.Where("productname = ?", product.ProductName).First(&product)
+	params := mux.Vars(r)
+	productId := params["id"]
 
-	if result.Error != nil {
-		respondJSON(w, http.StatusNotFound, nil, "Product not found")
-	} else {
-		respondJSON(w, http.StatusOK, product, "Product retrieved successfully")
-	}
+	productID, _ := strconv.ParseUint(productId, 10, 64)
 
-	// params := mux.Vars(r)
-	// productID := params["id"]
-
-	// var product Product
-	// if err := db.First(&product, productID).Error; err != nil {
-	// 	respondJSON(w, http.StatusNotFound, nil, "Product not found")
-	// 	return
-	// }
-
-	// respondJSON(w, http.StatusOK, product, "Product retrieved successfully")
-}
-
-// AddProduct adds a new product to the database.
-func AddProduct(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-
-	var newProduct ProductDto
-	if err := json.NewDecoder(r.Body).Decode(&newProduct); err != nil {
-		http.Error(w, "Failed to decode JSON", http.StatusBadRequest)
+	var product model.Product
+	if err := db.First(&product, productID).Error; err != nil {
+		http.Error(w, "Product not found", http.StatusNotFound)
 		return
 	}
 
-	product := Product{ProductName: newProduct.ProductName, Stock: newProduct.Stock, Brand: newProduct.Brand}
+	respondJSON(w, http.StatusOK, product, "Product found successfully")
+}
+
+func AddProduct(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var newProduct model.ProductDto
+	json.NewDecoder(r.Body).Decode(&newProduct)
+
+	product := model.Product{
+		ProductName: newProduct.ProductName,
+		Price:       newProduct.Price,
+		CategoryId:  newProduct.CategoryId,
+		BrandId:     newProduct.BrandId,
+		Stock:       newProduct.Stock,
+		AvgRating:   newProduct.AvgRating,
+		Location:    newProduct.Location,
+		Description: newProduct.Description,
+	}
 	if err := db.WithContext(context.Background()).Create(&product).Error; err != nil {
 		http.Error(w, "Failed to create product", http.StatusInternalServerError)
 		return
@@ -71,23 +71,26 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	params := mux.Vars(r)
-	productID := params["id"]
+	productId := params["id"]
+	productID, _ := strconv.ParseUint(productId, 10, 64)
 
-	var product Product
+	var product model.Product
 	if err := db.First(&product, productID).Error; err != nil {
 		respondJSON(w, http.StatusNotFound, nil, "Product not found")
 		return
 	}
 
-	var updatedProduct ProductDto
-	if err := json.NewDecoder(r.Body).Decode(&updatedProduct); err != nil {
-		http.Error(w, "Failed to decode JSON", http.StatusBadRequest)
-		return
-	}
+	var updatedProduct model.ProductDto
+	json.NewDecoder(r.Body).Decode(&updatedProduct)
 
 	product.ProductName = updatedProduct.ProductName
+	product.Price = updatedProduct.Price
+	product.CategoryId = updatedProduct.CategoryId
+	product.BrandId = updatedProduct.BrandId
 	product.Stock = updatedProduct.Stock
-	product.Brand = updatedProduct.Brand
+	product.AvgRating = updatedProduct.AvgRating
+	product.Location = updatedProduct.Location
+	product.Description = updatedProduct.Description
 
 	if err := db.WithContext(context.Background()).Save(&product).Error; err != nil {
 		http.Error(w, "Failed to update product", http.StatusInternalServerError)
@@ -102,9 +105,10 @@ func DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	params := mux.Vars(r)
-	productID := params["productid"]
+	productId := params["id"]
+	productID, _ := strconv.ParseUint(productId, 10, 64)
 
-	var product Product
+	var product model.Product
 	if err := db.First(&product, productID).Error; err != nil {
 		respondJSON(w, http.StatusNotFound, nil, "Product not found")
 		return
@@ -118,7 +122,6 @@ func DeleteProduct(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, nil, "Product deleted successfully")
 }
 
-// Helper function
 func respondJSON(w http.ResponseWriter, statusCode int, data interface{}, message string) {
 	w.WriteHeader(statusCode)
 
@@ -131,16 +134,4 @@ func respondJSON(w http.ResponseWriter, statusCode int, data interface{}, messag
 		http.Error(w, "Failed to encode JSON", http.StatusInternalServerError)
 		return
 	}
-}
-
-func GetData(w http.ResponseWriter, r *http.Request) {
-
-	db.AutoMigrate(&Product{})
-	var products []Product
-	db.Find(&products)
-
-	// Return the products as JSON
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(products)
-
 }
